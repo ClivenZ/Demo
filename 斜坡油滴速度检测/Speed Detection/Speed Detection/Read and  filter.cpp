@@ -14,10 +14,10 @@ using namespace cv;
 
 int main() {
 	//打开摄像头
-	VideoCapture capture(1);
+	VideoCapture capture(0);
 	//判断是否打开成功
 	if (!capture.isOpened()) {
-		cout << "Falcse" << endl;
+		cout << "Faluse" << endl;
 		return -1;
 	}
 	Mat frame;
