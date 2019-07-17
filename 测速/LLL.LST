@@ -1,0 +1,352 @@
+C51 COMPILER V9.00   LLL                                                                   01/02/2019 10:17:00 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE LLL
+OBJECT MODULE PLACED IN LLL.OBJ
+COMPILER INVOKED BY: E:\keil4\C51\BIN\C51.EXE LLL.C BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include <reg52.h>
+   2          #include <stdio.h>
+   3          sbit plus_1=P1^1;                                 //定义继电器对应单片机管脚
+   4          sbit minus_1=P1^2;
+   5          sbit plus_10=P1^3;
+   6          sbit minus_10=P1^4;
+   7          sbit plus_20=P1^5;
+   8          
+   9          sbit PWM=P2^5;            //PWM输出
+  10          //LCD//
+  11          sbit RS=P2^0;
+  12          sbit RW=P2^1;
+  13          sbit EN=P2^2;
+  14          
+  15          //motor//
+  16          unsigned int tt0;                //T0中断
+  17          unsigned int tt1;                //T1中断
+  18          
+  19          unsigned char flag;             //抽样时间
+  20          unsigned int speed=100; 
+  21          unsigned int set=50;    //设定速度
+  22          unsigned int a;
+  23          unsigned char receive;
+  24          unsigned int ReData,sum=0,count=0;
+  25          float Kp,Ki,Kd,Ti,Td,T;         //      pid参数定义
+  26          int ek,ek1,ek2,ekx;                                                                     
+  27          double Uk;              
+  28          
+  29          /****************************函数定义***********************************/
+  30          //void delay(unsigned intxms)                  //延时
+  31          //bit lcd_busy()                                                 //判断LCD1602是否忙碌          
+  32          //void write_com(unsigned char com)                  //LCD1602写命令函数
+  33          //void write_date(unsigned char date)                //LCD1602写数据函数
+  34          //void write_string(unsigned char *s)           //液晶LCD1602显示指针
+  35          //void lcd_initial()                                    //LCD1602初始化
+  36          //void keyscan()                             //设置速度键盘扫描
+  37          //void init()                                          //定时器初始化
+  38          //void t_0() interrupt 1                                  //定时
+  39          //void t_1() interrupt 3                        //驱动电机
+  40          //void t_2()    interrupt 5                         //计数器
+  41          //void pid(unsigned int count)            //增量PID控制
+  42          
+  43           /***********************************延时********************/
+  44          void delay(unsigned int x)  
+  45          
+  46          {
+  47   1      unsigned i, j;
+  48   1              for(i = x; i>0; i--)
+  49   1                      for(j = 110; j >0; j--);
+  50   1      }
+  51          
+  52          bit lcd_busy()                          //判断LCD1602是否忙碌                   
+  53          {
+  54   1              bit result;
+  55   1              P0=0xff;                                                
+C51 COMPILER V9.00   LLL                                                                   01/02/2019 10:17:00 PAGE 2   
+
+  56   1              RS=0;
+  57   1              RW=1;
+  58   1          _nop_();
+*** WARNING C206 IN LINE 58 OF LLL.C: '_nop_': missing function-prototype
+*** ERROR C264 IN LINE 58 OF LLL.C: intrinsic '_nop_': declaration/activation error
+  59   1          _nop_();
+  60   1          _nop_();
+  61   1              _nop_();
+  62   1              delay(1);
+  63   1              EN=1;
+  64   1              delay(1);
+  65   1              result=(bit)(P0&0x80);                  
+  66   1              EN=0;
+  67   1              return result;
+  68   1      }
+  69          void write_com(unsigned char com)               //LCD1602写命令函数
+  70          {
+  71   1              while(lcd_busy());                                                          
+  72   1              RS=0;
+  73   1              RW=0;
+  74   1              P0=com;
+  75   1       _nop_();
+  76   1         _nop_();
+  77   1      _nop_();
+  78   1              _nop_();
+  79   1              delay(1);                               
+  80   1              EN=1;
+  81   1              delay(1);                               
+  82   1              EN=0;
+  83   1      }
+  84                                                                                    
+  85          void write_date(unsigned char date)                             //LCD1602写数据函数
+  86          {
+  87   1              while(lcd_busy());
+  88   1              RS=1;
+  89   1              RW=0;
+  90   1              P0=date;
+  91   1       _nop_();
+  92   1         _nop_();
+  93   1      _nop_();
+  94   1              _nop_();
+  95   1              delay(1);
+  96   1              EN=1;
+  97   1              delay(1);
+  98   1              EN=0;
+  99   1      }
+ 100          
+ 101          void write_string(unsigned char *s)     //液晶LCD1602显示指针
+ 102           {     
+ 103   1      
+ 104   1      while (*s) 
+ 105   1              {     
+ 106   2      write_date(*s);     
+ 107   2      s++;
+ 108   2              }
+ 109   1       }
+ 110          void lcd_initial()                                      //LCD1602初始化
+ 111          {
+ 112   1              RS=1;
+ 113   1              RW=1;
+ 114   1              EN=0;                                                                  
+ 115   1       _nop_();
+C51 COMPILER V9.00   LLL                                                                   01/02/2019 10:17:00 PAGE 3   
+
+ 116   1         _nop_();
+ 117   1      _nop_();
+ 118   1              _nop_();
+ 119   1              write_com(0x38);        //设置16X2显示，5X7点阵，8位数据接口
+ 120   1              delay(1);               
+ 121   1              write_com(0x01);        //显示清零，数据指针清零
+ 122   1              delay(1);                       
+ 123   1              write_com(0x0c);        //设置开显示，不显示光标
+ 124   1              delay(1);                       
+ 125   1              write_com(0x06);        //写一个字符后地址指针加1                                                               
+ 126   1      }
+ 127          /*****************   设置速度键盘扫描    **************************/
+ 128          voidkeyscan()                                           
+ 129          {
+ 130   1              if(plus_1==0)
+ 131   1              {
+ 132   2              delay(10);
+ 133   2              if(plus_1==0)
+ 134   2                 {
+ 135   3              set=set+1;
+ 136   3                      if(set>=50)set=50;
+ 137   3                      while(!plus_1);
+ 138   3                      receive=1;
+ 139   3                 }
+ 140   2              }
+ 141   1              if(minus_1==0)
+ 142   1              {
+ 143   2              delay(10);
+ 144   2              if(minus_1==0)
+ 145   2                 {
+ 146   3              set=set-1;
+ 147   3                      if(set<=20)set=20;
+ 148   3                      while(!minus_1);
+ 149   3                      receive=1;
+ 150   3                 }
+ 151   2              }
+ 152   1              if(plus_10==0)
+ 153   1              {
+ 154   2              delay(10);
+ 155   2              if(plus_10==0)
+ 156   2                 {
+ 157   3              set=set+10;                                                              
+ 158   3                      if(set>=50)set=50;
+ 159   3                      while(!plus_10);
+ 160   3                      receive=1;
+ 161   3                 }
+ 162   2              }
+ 163   1              if(minus_10==0)
+ 164   1              {
+ 165   2              delay(10);
+ 166   2              if(minus_10==0)
+ 167   2                 {
+ 168   3              set=set-10;
+ 169   3                      if(set<=20)set=20;
+ 170   3                      while(!minus_10);
+ 171   3                      receive=1;
+ 172   3                 }
+ 173   2              }
+ 174   1              if(plus_20==0)
+ 175   1              {
+ 176   2              delay(10);
+ 177   2              if(plus_20==0)
+C51 COMPILER V9.00   LLL                                                                   01/02/2019 10:17:00 PAGE 4   
+
+ 178   2                 {
+ 179   3              set=set+20;
+ 180   3                       if(set>=50)set=50;
+ 181   3                      while(!plus_20);
+ 182   3                      receive=1;
+ 183   3                 }
+ 184   2              }
+ 185   1      }
+ 186          void init()                      //定时器初始化
+ 187          {
+ 188   1              TMOD=0x23;                                      //0010_0011 定时器0:模式3               定时器1:模式2
+ 189   1              SCON=0x50;                 //0101_0000  串行口方式1  10位UART 波特率可变
+ 190   1              PCON|=0x80;                                     //SMOD=1    串行口波特率加倍
+ 191   1              T2CON=0x02;                                     //计数器2       仅当定时器溢出时捕获和重装
+ 192   1              TH0=(256-100);                                          //驱动电机
+ 193   1              TL0=(256-250);                          //定时0.25ms
+ 194   1              TH1=243;                                        //256-2^1*11.0592/(384*9600)            波特率为4800
+ 195   1              TH2=0;
+ 196   1              TL2=0;
+ 197   1              TR0=1;          //启动定时器
+ 198   1              TR1=1;
+ 199   1              TR2=1;
+ 200   1              ET0=1;          //允许T0中断                                            
+ 201   1              ET1=1;
+ 202   1              ET2=1;
+ 203   1              ES=1;         //串行口中断位
+ 204   1              EA=1;        //中断允许位
+ 205   1              
+ 206   1      }
+ 207          //************************************************************************ //
+ 208          void t_0() interrupt 1                  //定时100ms(抽样时间)
+ 209          {   
+ 210   1              TL0=(256-250);
+ 211   1              tt0++;
+ 212   1              if(tt0==410)
+ 213   1              {
+ 214   2                      tt0=0;  
+ 215   2              flag=1;
+ 216   2                      
+ 217   2              }
+ 218   1      }
+ 219          //************************************************************************
+ 220          void t_1() interrupt 3                  //驱动电机      PWM               speed*发生一次中断时间=低电平，（100-speed）*中断时间=高电平
+ 221          {
+ 222   1              TH0=(256-100);
+ 223   1              tt1++;
+ 224   1              if(tt1>=250)
+ 225   1                      tt1=0;
+ 226   1              if(tt1<speed)   PWM=1;                             //speed是控制占空比的        
+ 227   1              else PWM=0;
+ 228   1              
+ 229   1      }
+ 230          
+ 231          void t_2()      interrupt 5             //计数器
+ 232          {
+ 233   1              TH2=0;
+ 234   1              TL2=0;
+ 235   1              TF2=0;  
+ 236   1      }
+ 237                                                                                  
+ 238          /****************增量式PID控制******************************/                                                                                           
+ 239          voidpid(unsigned int count)                             
+C51 COMPILER V9.00   LLL                                                                   01/02/2019 10:17:00 PAGE 5   
+
+ 240          {                                                                                                       
+ 241   1              ek=set-count;               //偏差值                                                            
+ 242   1              if(ek>=5&&ek<=-5)                       //积分分离                                  
+ 243   1          {Uk=Kp*(ek-ek1)+Ki*ek+Kd*(ek-2*ek1+ek2);}     //增量PID                     
+ 244   1              else Uk=Kp*ek;  
+ 245   1              speed=speed+Uk;
+ 246   1              if(speed>300)speed=300;         //抗积分饱和
+ 247   1              if(speed<0)  speed=0;   
+ 248   1              ek2=ek1;
+ 249   1              ek1=ek;
+ 250   1      }
+ 251          
+ 252          /**************************主函数*********************************************/
+ 253          
+ 254          void main()
+ 255          {
+ 256   1      
+ 257   1      unsigned char ww=1;     
+ 258   1              T=1;
+ 259   1              Kp=4.5;
+ 260   1              Ti=0.8;
+ 261   1              Td=0;
+ 262   1      
+ 263   1              Ki=Kp*T/Ti;
+ 264   1              Kd=Kp*Td;
+ 265   1              keyscan();
+ 266   1              lcd_initial();
+ 267   1              write_string(" set:     r/s");
+ 268   1              write_com(0x80+0x40);          //第二行
+ 269   1              write_string("real:     r/s");
+ 270   1              write_com(0x80+6);
+ 271   1              write_date(set/100+0x30);                         //设置的数据
+ 272   1              write_date(set%100/10+0x30);            
+ 273   1              write_date(set%10+0x30);
+ 274   1              init(); 
+ 275   1              while(1)
+ 276   1              {
+ 277   2              keyscan();                                 //LCD1602显示设置的速度值
+ 278   2                      if(receive)                                                                                     
+ 279   2                      {
+ 280   3                              receive=0;
+ 281   3                              
+ 282   3                              write_com(0x80+6);
+ 283   3                              write_date(set/100+0x30);               
+ 284   3                              write_date(set%100/10+0x30);                    
+ 285   3                              write_date(set%10+0x30);
+ 286   3                      }            
+ 287   2                      if(flag)                        //100ms
+ 288   2                      {
+ 289   3                              unsigned char num;               //LCD1602显示真实的速度值
+ 290   3                              
+ 291   3                              flag=0;
+ 292   3                      
+ 293   3                              a=(TH2*256+TL2);          //r/s
+ 294   3                          TH2=0;
+ 295   3                          TL2=0;                      
+ 296   3                              num++;
+ 297   3                              sum=sum+a;              //累加10次达到一秒
+ 298   3                              if(num==10)
+ 299   3                              {
+ 300   4                                      count=sum;
+ 301   4                                      num=0;
+C51 COMPILER V9.00   LLL                                                                   01/02/2019 10:17:00 PAGE 6   
+
+ 302   4                                      sum=0;
+ 303   4                                      count=count/448;
+ 304   4                                      write_com(0x80+0x40+6);
+ 305   4                              write_date(count/100+0x30);             
+ 306   4                      write_date(count%100/10+0x30);                  
+ 307   4                              write_date(count%10+0x30);      
+ 308   4                              if(ww==1)
+ 309   4                                 {
+ 310   5                              TI=1;
+ 311   5                                      printf("%d",0);
+ 312   5                                      while(!TI);
+ 313   5                                      TI=0;
+ 314   5                                      delay(10);
+ 315   5                                      ww=ww-1;        
+ 316   5                                 }
+ 317   4                              else
+ 318   4                                      {
+ 319   5                                      TI=1;
+ 320   5                                      printf("%d",count);
+ 321   5                                      while(!TI);
+ 322   5                                      TI=0;
+ 323   5                                      delay(10);
+ 324   5                                      }                               
+ 325   4                              pid(count);
+ 326   4                         }
+ 327   3                      }
+ 328   2              }
+ 329   1              }
+
+C51 COMPILATION COMPLETE.  1 WARNING(S),  1 ERROR(S)

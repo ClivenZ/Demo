@@ -1,0 +1,264 @@
+C51 COMPILER V9.00   MAIN                                                                  01/03/2019 13:21:09 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN main.OBJ
+COMPILER INVOKED BY: E:\keil4\C51\BIN\C51.EXE main.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include <reg52.h>
+   2          
+   3          #define uint unsigned int
+   4          #define uchar unsigned char
+   5          
+   6          //PWM
+   7          sbit PWM = P2^0;
+   8          //按键
+   9          sbit Key1 = P3^4;
+  10          sbit Key2 = P3^5;
+  11          //LCD
+  12          sbit RS = P1^0;
+  13          sbit RW = P1^1;
+  14          sbit EN = P2^5;
+  15          
+  16          float Kp = 20;Ki = 10;Kd = 0;           //PID参数设定
+  17          uint Error = 0,PrevError = 0,LastError = 0; //误差参数
+  18          uint SpeedSet = 50;                             //设置速度初值
+  19          uint Inpluse = 0,RealSpeed = 0; //测速
+  20          uint PWM_Time = 50;                 //设置脉冲宽度
+  21          uint cnt = 0;                                   //调节占空比
+  22          uint Out = 0;
+  23          uchar receive = 0,flag = 0;
+  24          
+  25          
+  26          /**************延时函数*****************/
+  27          void delay(uint x)
+  28          {
+  29   1              uint i,j;
+  30   1              for(i = x;i > 0;i--)
+  31   1                      for(j = 110;j > 0;j--);
+  32   1      }
+  33          /**************PID输出*****************/
+  34           void PID_Control()
+  35          {
+  36   1          //计算偏差
+  37   1              //e(k)= r(k) - c(k)
+  38   1              Error = SpeedSet - RealSpeed;
+  39   1              //增量式PID计算
+  40   1              //▲u(k) = Kp*(e(k)-e(k-1))+Ki*e(k)+Kd*(e(k)-2*e(k-1)+e(k-2))+U0
+  41   1              Out = Out + ((Kp * (Error - LastError) + Ki * Error + Kd * (Error + PrevError - 2 * LastError))/50);
+  42   1              //误差更新
+  43   1              //e(k-1)→e(k-2)   e(k)→e(k-1)
+  44   1              PrevError = LastError;
+  45   1              LastError = Error;
+  46   1              //
+  47   1              PWM_Time = Out ;
+  48   1      }
+  49          /**************键盘扫描*****************/
+  50          void KeyScan()
+  51          {
+  52   1              if(Key1 == 0)
+  53   1                      delay(5);
+  54   1                      if(Key1 == 0)
+  55   1                      {
+C51 COMPILER V9.00   MAIN                                                                  01/03/2019 13:21:09 PAGE 2   
+
+  56   2                              SpeedSet += 50;
+  57   2                              receive = 1;
+  58   2                              if(SpeedSet > 3000)
+  59   2                              {
+  60   3                                      SpeedSet = 3000;
+  61   3                                      receive = 1;
+  62   3                              }
+  63   2                      }
+  64   1               if(Key2 == 0)
+  65   1                      delay(5);
+  66   1                      if(Key2 == 0)
+  67   1                      {
+  68   2                              SpeedSet -= 50;
+  69   2                              receive = 1;
+  70   2                              if(SpeedSet == 0)
+  71   2                                      SpeedSet = 0;
+  72   2                                      receive = 1;            
+  73   2                      }
+  74   1      }
+  75          /**************中断设置*****************/
+  76          //设置定时器T0、T1
+  77          //定时器0：工作方式2：重装初值的8为定时器
+  78          //定时器1：工作方式1：16位定时器
+  79          void Init()
+  80          {
+  81   1              TMOD = 0x21;                       //0010 0001
+  82   1              TH0 = (65536 - 2000)/256;
+  83   1              TL0 = (65536 - 2000)%256;  //2ms
+  84   1              TH1 = (65536 - 100)/256;
+  85   1              TL1 = (65536 - 100)%256;   //0.1ms
+  86   1              TR0 = 1;                                   //启动T0
+  87   1              ET0 = 1;                                   //T0中断允许
+  88   1              TR1 = 1;                                   //启动T1
+  89   1              ET1 = 1;                                   //T1中断允许
+  90   1              EX0 = 1;                                   //INT0中断允许
+  91   1              IT0 = 1;                                   //INT0为边沿触发
+  92   1              EA = 1;                                    //打开总中断
+  93   1      }
+  94          //外部中断0 记录脉冲数 用于测速
+  95          void INT_0() interrupt 0
+  96          {
+  97   1              Inpluse++;                                      //INT0计数用于测速
+  98   1      }
+  99          //定时器T0：每定时2ms time += 1；
+ 100          //当time = 100，此时定时50*2 =100ms 
+ 101          void T0_Time()   interrupt 1
+ 102          {
+ 103   1              static uchar time = 0;
+ 104   1              TR0 = 0;                                   //关闭T0
+ 105   1              TH0 = (65536 - 2000)/256;  //重装初值
+ 106   1              TL0 = (65536 - 2000)%256;          
+ 107   1              TR0 = 1;                                   //打开T0
+ 108   1              time++;                                    //计数+1
+ 109   1              if(time == 50)                     //200ms
+ 110   1              {
+ 111   2                  time = 0;
+ 112   2                      flag = 1;
+ 113   2                      RealSpeed = (Inpluse * 10) / 2;   //计算出此时的速度 Inpluse r/s
+ 114   2                      Inpluse = 0;               //初始化，INT0重新记录脉冲数
+ 115   2                      PID_Control();             //将速度进行PID调整
+ 116   2              }
+ 117   1      }
+C51 COMPILER V9.00   MAIN                                                                  01/03/2019 13:21:09 PAGE 3   
+
+ 118          void T1_Time()  interrupt 3
+ 119          {
+ 120   1              cnt++;                     //每0.1ms +1 ，用于控制占空比
+ 121   1      }
+ 122          /**************脉冲输出****************/
+ 123          void PWM_Out()
+ 124          {
+ 125   1              if(cnt < PWM_Time)                 //PWM_Time=50,此时占空比为50%
+ 126   1              {
+ 127   2                      PWM = 1;
+ 128   2              }
+ 129   1              else
+ 130   1                      PWM = 0;
+ 131   1              if(cnt > 100)                  //cnt设定周期 此时信号周期为10ms
+ 132   1              {
+ 133   2                      cnt = 0;
+ 134   2              }
+ 135   1      }
+ 136          
+ 137          /*************判断忙碌*****************/
+ 138          bit LCD_Busy()
+ 139          {
+ 140   1              bit result;
+ 141   1              P0 = 0xff;
+ 142   1              RS = 0;
+ 143   1              RW = 1;
+ 144   1              delay(1);
+ 145   1              EN = 1;
+ 146   1              delay(1);
+ 147   1              result = (bit)(P0&0x80);
+ 148   1              EN = 0;
+ 149   1              return result;
+ 150   1      }
+ 151          /*************写入命令*****************/
+ 152          void Write_Com(uchar com)
+ 153          {
+ 154   1              while(LCD_Busy());
+ 155   1              RS = 0;
+ 156   1              RW = 0;
+ 157   1              P0 = com;
+ 158   1              delay(1);
+ 159   1              EN = 1;
+ 160   1              delay(1);
+ 161   1              EN = 0;
+ 162   1      }
+ 163          /*************读入命令*****************/
+ 164          void Write_Date(uchar date)
+ 165          {
+ 166   1              while(LCD_Busy());
+ 167   1              RS = 1;
+ 168   1              RW = 0;
+ 169   1              P0 = date;
+ 170   1              delay(1);
+ 171   1              EN = 1;
+ 172   1              delay(1);
+ 173   1              EN = 0;
+ 174   1      }
+ 175          /*************显示指针*****************/
+ 176          void Write_String(uchar *s)
+ 177          {
+ 178   1              while(*s)
+ 179   1              {
+C51 COMPILER V9.00   MAIN                                                                  01/03/2019 13:21:09 PAGE 4   
+
+ 180   2                      Write_Date(*s);
+ 181   2                      s++;
+ 182   2              }
+ 183   1      }
+ 184          /*************LCD初始化*****************/
+ 185          void LCD_Init()
+ 186          {
+ 187   1              RS = 1;
+ 188   1              RW = 1;
+ 189   1              EN = 0;
+ 190   1              Write_Com(0x38);//设置16*2显示，5*7点阵，8位数据接口
+ 191   1              delay(1);
+ 192   1              Write_Com(0x01);//显示清零，数据指针清零
+ 193   1              delay(1);
+ 194   1              Write_Com(0x0c);//设置开显示，不显示光标
+ 195   1              delay(1);
+ 196   1              Write_Com(0x06);//写一个字符后地址+1
+ 197   1      }
+ 198          /**************主函数******************/
+ 199          void main()
+ 200          {
+ 201   1               LCD_Init();
+ 202   1               Write_String("set:       r/s");
+ 203   1               Write_Com(0x80 + 0x40);
+ 204   1               Write_String("real:      r/s");
+ 205   1               Write_Com(0x80 + 6);
+ 206   1      //   Write_Date(SpeedSet/1000 + 0x30);
+ 207   1      //       Write_Date(SpeedSet%1000/100 + 0x30);
+ 208   1      //       Write_Date(SpeedSet%100/10 + 0x30);
+ 209   1      //       Write_Date(SpeedSet%10 + 0x30);
+ 210   1               Init();
+ 211   1               while(1)
+ 212   1               {
+ 213   2                      KeyScan();
+ 214   2                      if(receive == 1)                                                                                        
+ 215   2                      {
+ 216   3                              receive = 0;                    
+ 217   3                              Write_Com(0x80 + 6);
+ 218   3                              Write_Date(SpeedSet/1000 + 0x30);
+ 219   3                              Write_Date(SpeedSet%1000/100 + 0x30);           
+ 220   3                              Write_Date(SpeedSet%100/10 + 0x30);                     
+ 221   3                              Write_Date(SpeedSet%10 + 0x30);
+ 222   3                      }
+ 223   2                      if(flag == 1)
+ 224   2                      {
+ 225   3                              Write_Com(0x80+0x40+6);
+ 226   3                              Write_Date(RealSpeed/1000 + 0x30);              
+ 227   3                      Write_Date(RealSpeed%1000/100 + 0x30);                  
+ 228   3                              Write_Date(RealSpeed%100/10 + 0x30);
+ 229   3                              Write_Date(RealSpeed%10 + 0x30);        
+ 230   3                      }                   
+ 231   2                      PWM_Out();               
+ 232   2           }    
+ 233   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    849    ----
+   CONSTANT SIZE    =     30    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     29       3
+C51 COMPILER V9.00   MAIN                                                                  01/03/2019 13:21:09 PAGE 5   
+
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----       1
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
