@@ -1,0 +1,80 @@
+#include "include.h"
+
+#define uchar unsigned  char
+
+#define LCD_RS GpioDataRegs.GPADAT.bit.GPIOA6
+//#define LCD_RW GpioDataRegs.GPADAT.bit.GPIO2
+#define LCD_EN GpioDataRegs.GPADAT.bit.GPIOA7
+#define LCD_DB GpioDataRegs.GPBDAT.all
+
+//函数定义
+void Init_Port(void);
+void LCD_init(void);                        //初始化函数
+void LCD_write_command(uchar command);      //写指令函数
+void LCD_write_data(uchar dat);             //写数据函数
+void show(char *cont);                      //显示子函数
+
+
+//显示子函数，cout为显示字符串指针参数
+void show(char* cont){
+    while(*cout != 0){
+        LCD_write_data(*data);
+        DELAU_US(500);
+        cout++;
+    }
+}
+
+//LCD1602初始化函数
+void Init_Port(void){
+    EALLOW;
+
+    //配置GPIOA、B为通用IO口
+    GpioMuxRegs.GPAMUX.all = 0xFFFF;
+    GpioMuxRegs.GPBMUX.all = 0xFFFF;
+
+    //配置IO口为输出状态
+    GpioMuxRegs.GPADIR.all = 0xFFFF;
+    GpioMuxRegs.GPBDIR.all = 0xFFFF;
+
+    //与系统时钟同步
+    GpioMuxRegs.GPAQUAL.all = 0x0000;
+    GpioMuxRegs.GPBQUAL.all = 0x0000;
+
+    //输出数据RS和EN清零
+    GpioDataRegs.GPADAT.bit.GPIOA6 = 1;
+    //GpioDataRegs.GPADAT.bit.GPIO2 = 0;
+    GpioDataRegs.GPADAT.bit.GPIOA7 = 0;
+    EDIS;
+}
+
+//写指令函数
+void LCD_write_command(uchar command){
+    LCD_EN = 0;
+    LCD_RS = 0;//指令
+    //LCD_RW = 0;
+    LCD_DB = command; //赋值给D0-D7对应的GPIO2-GPIO9
+    DELAY_US(500);
+    LCD_EN = 1;
+    DELAY_US(1000);
+    LCD_EN = 0;
+}
+
+
+
+
+//main
+int main(void){
+
+#if 1
+// Copy InitFlash function code and Flash setup code to RAM
+  MemCopy(&RamfuncsLoadStart, &RamfuncsLoadEnd, &RamfuncsRunStart);
+// This function must reside in RAM
+  InitFlash();
+#endif
+
+
+  return 0;
+}
+
+
+

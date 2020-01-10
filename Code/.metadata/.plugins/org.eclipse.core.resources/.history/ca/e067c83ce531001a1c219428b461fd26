@@ -1,0 +1,17 @@
+#include "include.h"
+
+
+
+//main
+int main(void){
+
+#if 1
+// Copy InitFlash function code and Flash setup code to RAM
+  MemCopy(&RamfuncsLoadStart, &RamfuncsLoadEnd, &RamfuncsRunStart);
+// This function must reside in RAM
+  InitFlash();
+#endif
+
+
+  return 0;
+}

@@ -1,0 +1,31 @@
+#include "include.h"
+
+unsigned int i;
+unsigned int x1,y1;
+int a[128];
+
+//写LCD数据参数，判断0或1位
+void wr_data(unsigned int dat1){
+    unsigned int status;
+    do
+    {
+        //屏蔽status的2~15位
+        status = *c_addr & 0x03;
+    }
+    while(status != 0x03);
+    *d_addr = dat1;
+}
+
+//main
+int main(void){
+
+#if 1
+// Copy InitFlash function code and Flash setup code to RAM
+  MemCopy(&RamfuncsLoadStart, &RamfuncsLoadEnd, &RamfuncsRunStart);
+// This function must reside in RAM
+  InitFlash();
+#endif
+
+
+  return 0;
+}

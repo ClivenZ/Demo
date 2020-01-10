@@ -1,0 +1,1 @@
+-v28 -ml -mt -g --diag_warning=225 --diag_wrap=off --display_error_number -z -m"DSP_LCD_TMS320F2812.map" --warn_sections -i"G:/CCS/ccsv8/tools/compiler/ti-cgt-c2000_18.1.4.LTS/lib" -i"G:/CCS/ccsv8/tools/compiler/ti-cgt-c2000_18.1.4.LTS/include" --reread_libs --diag_wrap=off --display_error_number --xml_link_info="DSP_LCD_TMS320F2812_linkInfo.xml" --rom_model 

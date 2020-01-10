@@ -1,0 +1,10 @@
+#include ¡°DSP281x_Device.h¡±
+#include ¡°DSP281x_Examples.h¡±
+
+/**
+ * main.c
+ */
+int main(void)
+{
+	return 0;
+}

@@ -1,0 +1,32 @@
+#include "include.h"
+
+#define uchar unsigned  char
+
+#define LCD_RS GpioDataRegs.GPADAT.bit.GPIOA6
+//#define LCD_RW GpioDataRegs.GPADAT.bit.GPIO2
+#define LCD_EN GpioDataRegs.GPADAT.bit.GPIOA7
+#define LCD_DB GpioDataRegs.GPBDAT.all
+
+//º¯Êý¶¨Òå
+void Init_Port(void);
+void LCD_init(void);
+void LCD_write_command(uchar command);
+void LCD_write_data(uchar dat);
+void show(char *cont);
+
+//main
+int main(void){
+
+#if 1
+// Copy InitFlash function code and Flash setup code to RAM
+  MemCopy(&RamfuncsLoadStart, &RamfuncsLoadEnd, &RamfuncsRunStart);
+// This function must reside in RAM
+  InitFlash();
+#endif
+
+
+  return 0;
+}
+
+
+
